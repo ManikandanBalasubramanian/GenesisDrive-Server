@@ -31,10 +31,10 @@ public class DataHandler extends HttpServlet {
       new HashMap<>();
 
   static {
-    POST_API.put("/api/data/addMeta", DataHandler::addMeta);
-    GET_API.put("/api/data/listMeta", DataHandler::listMeta);
-    GET_API.put("/api/data/searchMeta", DataHandler::searchMeta);
-    DELETE_API.put("/api/data/deleteMeta", DataHandler::deleteMeta);
+    POST_API.put("/api/data/add", DataHandler::addMeta);
+    GET_API.put("/api/data/list", DataHandler::listMeta);
+    GET_API.put("/api/data/search", DataHandler::searchMeta);
+    DELETE_API.put("/api/data/delete", DataHandler::deleteMeta);
   }
 
   @Override

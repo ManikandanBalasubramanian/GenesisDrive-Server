@@ -3,6 +3,9 @@ package com.test.firebase;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseAuthException;
+import com.google.firebase.auth.FirebaseToken;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.logging.Logger;
@@ -22,5 +25,17 @@ public class FirebaseHandler {
     } catch (IOException e) {
       LOGGER.info("Error Initializing Firebase App.\nCause: " + e.getLocalizedMessage());
     }
+  }
+
+  public static String getUID(String idToken) throws FirebaseAuthException {
+    FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(idToken);
+    return decodedToken.getUid();
+  }
+
+  public static String getUIDFromCookie(String sessionCookie) throws FirebaseAuthException {
+    final boolean checkRevoked = true;
+    FirebaseToken decodedToken =
+        FirebaseAuth.getInstance().verifySessionCookie(sessionCookie, checkRevoked);
+    return decodedToken.getUid();
   }
 }

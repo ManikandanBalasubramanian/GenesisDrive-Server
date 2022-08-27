@@ -2,6 +2,7 @@ package com.test.restapi.filter;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;
+import com.google.firebase.auth.FirebaseToken;
 import com.test.config.ServerConfigurations;
 import com.test.db.configurations.DBConfigurations;
 import com.test.db.table.UserTable;
@@ -45,12 +46,12 @@ public class SessionCheckFilter implements Filter {
 
     String path = ((HttpServletRequest) request).getRequestURI();
     boolean isSkip = isSkipUrl.test(path);
-    boolean isValidCookie = validateCookie(((HttpServletRequest) request).getCookies());
+    boolean isValidCookie = validateCookie((HttpServletRequest) request);
 
     if (isSkip && isValidCookie) {
-      ((HttpServletResponse) response).sendRedirect("/index.html");
+      ((HttpServletResponse) response).sendRedirect("/");
     } else if (!isSkip && !isValidCookie) {
-      ((HttpServletResponse) response).sendRedirect("/login.html");
+      ((HttpServletResponse) response).sendRedirect("/signin");
       //    } else if (!isSkip && isValidCookie) {
       //      if (isUserConfigured((HttpServletRequest) request)) chain.doFilter(request, response);
       //      else ((HttpServletResponse) response).sendRedirect("/configuration.html");
@@ -59,13 +60,17 @@ public class SessionCheckFilter implements Filter {
     }
   }
 
-  private boolean validateCookie(Cookie[] cookies) {
+  private boolean validateCookie(HttpServletRequest request) {
+    Cookie[] cookies = request.getCookies();
     String cookieVal = ServerConfigurations.getSessionCookie(cookies);
+
     if (cookieVal == null) return false;
 
     try {
       final boolean checkRevoked = true;
-      FirebaseAuth.getInstance().verifySessionCookie(cookieVal, checkRevoked);
+      FirebaseToken decodedToken =
+          FirebaseAuth.getInstance().verifySessionCookie(cookieVal, checkRevoked);
+      request.setAttribute("uid", decodedToken.getUid());
     } catch (FirebaseAuthException e) {
       return false;
     }

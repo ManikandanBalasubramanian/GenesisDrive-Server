@@ -19,6 +19,8 @@ public class UserTable {
   private boolean isUserPassphrase;
   private Boolean isConfigured;
 
+  public UserTable() {}
+
   public UserTable(ResultSet rs) throws DDException {
 
     System.out.println(rs);
@@ -46,32 +48,36 @@ public class UserTable {
     return firebaseUserId;
   }
 
-  public void setFirebaseUserId(String firebase_user_id) {
+  public UserTable setFirebaseUserId(String firebase_user_id) {
     this.firebaseUserId = firebase_user_id;
+    return this;
   }
 
   public String getUsername() {
     return username;
   }
 
-  public void setUsername(String username) {
+  public UserTable setUsername(String username) {
     this.username = username;
+    return this;
   }
 
   public boolean isUserPassphrase() {
     return isUserPassphrase;
   }
 
-  public void setUserPassphrase(boolean isUserPassphrase) {
+  public UserTable setUserPassphrase(boolean isUserPassphrase) {
     this.isUserPassphrase = isUserPassphrase;
+    return this;
   }
 
   public Boolean getIsConfigured() {
     return isConfigured;
   }
 
-  public void setIsConfigured(Boolean isConfigured) {
+  public UserTable setIsConfigured(Boolean isConfigured) {
     this.isConfigured = isConfigured;
+    return this;
   }
 
   public JSONObject toJson() {
@@ -88,12 +94,13 @@ public class UserTable {
     try {
       LOGGER.info("Adding new user : " + uid);
       conn = DBUtils.getConnection();
-      stmt = conn.prepareStatement("INSERT INTO users (username, uid) values (?, ?);");
+      stmt = conn.prepareStatement("INSERT INTO users (username, firebase_user_id) values (?, ?);");
       stmt.setString(1, username);
       stmt.setString(2, uid);
-      ResultSet rs = stmt.executeQuery();
-      return new UserTable(rs);
+      int n = stmt.executeUpdate();
+      return new UserTable().setUsername(username).setFirebaseUserId(uid);
     } catch (SQLException e) {
+      e.printStackTrace();
       throw new DDException("Error fetching userdetails!", e);
     } finally {
       DBUtils.closeConnection(conn);

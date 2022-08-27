@@ -6,6 +6,10 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.SessionCookieOptions;
 import com.test.config.ServerConfigurations;
+import com.test.db.table.UserTable;
+import com.test.exception.DDException;
+import com.test.firebase.FirebaseHandler;
+import com.test.restapi.response.ResponseHandler;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -28,20 +32,58 @@ public class AuthenticationHandler extends HttpServlet {
   @Override
   protected void doGet(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
-    LOGGER.info("SigningOut");
+    LOGGER.info("SignOut");
     String cookieVal = ServerConfigurations.getSessionCookie(request.getCookies());
     Cookie cookie = new Cookie(SESSION_COOKIE, cookieVal);
     cookie.setMaxAge(0);
     cookie.setHttpOnly(true);
     response.addCookie(cookie);
-    ((HttpServletResponse) response).sendRedirect("/login.html");
+    ((HttpServletResponse) response).sendRedirect("/signin");
   }
 
   @Override
   protected void doPost(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
-    LOGGER.info("SigningIn");
+    String path = request.getRequestURI();
 
+    if (path.equals("/sessionLogin")) {
+      sessionLogin(request, response);
+    } else if (path.equals("/sessionSignup")) {
+      sessionSignUp(request, response);
+    }
+  }
+
+  private void sessionSignUp(HttpServletRequest request, HttpServletResponse response) {
+    LOGGER.info("SignUp");
+    JSONObject output = new JSONObject();
+    long expiresIn = TimeUnit.DAYS.toMillis(5);
+    JSONObject json = parseJson(request);
+    //    String username = json.getString("username");
+    String username = "temp";
+    String idToken = json.getString("idToken");
+
+    SessionCookieOptions options = SessionCookieOptions.builder().setExpiresIn(expiresIn).build();
+
+    try {
+      String uid = FirebaseHandler.getUID(idToken);
+
+      String cookieVal = FirebaseAuth.getInstance().createSessionCookie(idToken, options);
+      Cookie cookie = new Cookie(SESSION_COOKIE, cookieVal);
+      cookie.setMaxAge((int) expiresIn);
+      cookie.setHttpOnly(true);
+      UserTable ut = UserTable.addUser(username, uid);
+
+      response.addCookie(cookie);
+      output = ResponseHandler.getSuccessResponseJson(ut.toJson());
+    } catch (FirebaseAuthException | DDException e) {
+      output = ResponseHandler.getErrorResponseJson("Error Authenticating user");
+    }
+    ResponseHandler.writeResponse(output, response);
+  }
+
+  private void sessionLogin(HttpServletRequest request, HttpServletResponse response) {
+    LOGGER.info("SignIn");
+    JSONObject output = new JSONObject();
     long expiresIn = TimeUnit.DAYS.toMillis(5);
     String idToken = parseJson(request).getString("idToken");
     SessionCookieOptions options = SessionCookieOptions.builder().setExpiresIn(expiresIn).build();
@@ -52,10 +94,11 @@ public class AuthenticationHandler extends HttpServlet {
       cookie.setMaxAge((int) expiresIn);
       cookie.setHttpOnly(true);
       response.addCookie(cookie);
-
+      output = ResponseHandler.getSuccessResponseJson("");
     } catch (FirebaseAuthException e) {
-
+      output = ResponseHandler.getErrorResponseJson("Error Authenticating user");
     }
+    ResponseHandler.writeResponse(output, response);
   }
 
   private JSONObject parseJson(HttpServletRequest request) {

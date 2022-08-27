@@ -65,7 +65,7 @@ public class ResponseHandler {
     writeResponse(response, httpServletResponse);
   }
 
-  private static void writeResponse(JSONObject message, HttpServletResponse servletResponse) {
+  public static void writeResponse(JSONObject message, HttpServletResponse servletResponse) {
     try {
       servletResponse.setContentType("application/json");
       servletResponse.addHeader("Access-Control-Allow-Headers", "*");
