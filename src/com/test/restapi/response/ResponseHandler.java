@@ -68,6 +68,7 @@ public class ResponseHandler {
   private static void writeResponse(JSONObject message, HttpServletResponse servletResponse) {
     try {
       servletResponse.setContentType("application/json");
+      servletResponse.addHeader("Access-Control-Allow-Headers", "*");
       servletResponse.setCharacterEncoding("UTF-8");
       message.write(servletResponse.getWriter());
     } catch (JSONException | IOException e) {

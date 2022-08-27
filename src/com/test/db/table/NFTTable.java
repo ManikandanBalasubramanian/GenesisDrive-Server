@@ -10,6 +10,7 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
+import org.json.JSONObject;
 
 public class NFTTable {
 
@@ -19,6 +20,7 @@ public class NFTTable {
   private long dataId;
   private Timestamp createdOn;
   private String cid;
+  private DataTable dataTable;
 
   public static NFTTable getNFT(ResultSet rs) throws DDException {
     List<NFTTable> list = getNFTList(rs);
@@ -31,7 +33,18 @@ public class NFTTable {
       List<NFTTable> list = new ArrayList<>();
       while (rs.next()) {
         NFTTable dt = new NFTTable();
+        DataTable dat = new DataTable();
 
+        dat.setDataId(rs.getLong("data_id"));
+        dat.setUserId(rs.getLong("user_id"));
+        dat.setFileHash(rs.getString("file_hash"));
+        dat.setFileName(rs.getString("file_name"));
+        dat.setFileType(rs.getInt("file_type"));
+        dat.setIsEncrypted(rs.getBoolean("is_encrypted"));
+        dat.setSearchTags(rs.getString("search_tags"));
+        dat.setCid(rs.getString("cid"));
+
+        dt.dataTable = dat;
         dt.id = rs.getLong("id");
         dt.dataId = rs.getLong("data_id");
         dt.cid = rs.getString("cid");
@@ -80,6 +93,10 @@ public class NFTTable {
     this.createdOn = createdOn;
   }
 
+  public JSONObject toJson() {
+    return dataTable.toJson().put("cid", cid).put("createdOn", createdOn);
+  }
+
   public static NFTTable addData(long dataId, String uid, String cid) throws DDException {
     Connection conn = null;
     PreparedStatement stmt = null;
@@ -112,7 +129,7 @@ public class NFTTable {
       conn = DBUtils.getConnection();
       stmt =
           conn.prepareStatement(
-              "SELECT * from nft_contents WHERE data_id = (SELECT data_id from contents WHERE user_id = (SELECT user_id from users WHERE firebase_user_id = ?));");
+              "SELECT * from nft_contents JOIN contents USING (data_id) WHERE user_id = (SELECT user_id from users WHERE firebase_user_id = ?);");
       stmt.setString(1, uid);
       ResultSet rs = stmt.executeQuery();
       return getNFTList(rs);
@@ -132,8 +149,8 @@ public class NFTTable {
       conn = DBUtils.getConnection();
       stmt =
           conn.prepareStatement(
-              "SELECT * from nft_contents WHERE data_id = (SELECT data_id from contents WHERE search_tags LIKE %?% AND user_id = (SELECT user_id from users WHERE firebase_user_id = ?));");
-      stmt.setString(1, search);
+              "SELECT * from nft_contents JOIN contents USING (data_id) WHERE search_tags LIKE ?  AND user_id = (SELECT user_id from users WHERE firebase_user_id = ?);");
+      stmt.setString(1, "%" + search + "%");
       stmt.setString(2, uid);
       ResultSet rs = stmt.executeQuery();
       return getNFTList(rs);

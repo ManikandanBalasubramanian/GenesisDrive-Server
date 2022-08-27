@@ -31,10 +31,10 @@ public class NFTHandler extends HttpServlet {
       new HashMap<>();
 
   static {
-    POST_API.put("/api/data/addMeta", NFTHandler::addMeta);
-    GET_API.put("/api/data/listMeta", NFTHandler::listMeta);
-    GET_API.put("/api/data/searchMeta", NFTHandler::searchMeta);
-    DELETE_API.put("/api/data/deleteMeta", NFTHandler::deleteMeta);
+    POST_API.put("/api/nft/add", NFTHandler::addMeta);
+    GET_API.put("/api/nft/list", NFTHandler::listMeta);
+    GET_API.put("/api/nft/search", NFTHandler::searchMeta);
+    DELETE_API.put("/api/nft/delete", NFTHandler::deleteMeta);
   }
 
   @Override
@@ -63,7 +63,7 @@ public class NFTHandler extends HttpServlet {
       LOGGER.info("Add Meta");
       String uid = request.getParameter("uid");
       String cid = request.getParameter("cid");
-      long dataId = request.getParameter("dataId");
+      long dataId = Long.parseLong(request.getParameter("dataId"));
       NFTTable data = NFTTable.addData(dataId, uid, cid);
       return ResponseHandler.getSuccessResponseJson(data.toJson());
     } catch (DDException e) {
