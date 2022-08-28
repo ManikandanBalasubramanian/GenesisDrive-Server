@@ -1,7 +1,9 @@
 package com.test.restapi.handler;
 
+import com.google.firebase.auth.FirebaseAuthException;
 import com.test.db.table.DataTable;
 import com.test.exception.DDException;
+import com.test.firebase.FirebaseHandler;
 import com.test.restapi.response.ResponseHandler;
 import java.io.IOException;
 import java.util.HashMap;
@@ -32,16 +34,9 @@ public class DataHandler extends HttpServlet {
 
   static {
     POST_API.put("/api/data/add", DataHandler::addMeta);
-    GET_API.put("/api/data/list", DataHandler::listMeta);
-    GET_API.put("/api/data/search", DataHandler::searchMeta);
+    POST_API.put("/api/data/list", DataHandler::listMeta);
+    POST_API.put("/api/data/search", DataHandler::searchMeta);
     DELETE_API.put("/api/data/delete", DataHandler::deleteMeta);
-  }
-
-  @Override
-  protected void doGet(HttpServletRequest request, HttpServletResponse response)
-      throws ServletException, IOException {
-    String path = request.getRequestURI();
-    ResponseHandler.sendSuccessResponse(GET_API.get(path).apply(request), 200, response);
   }
 
   @Override
@@ -61,17 +56,20 @@ public class DataHandler extends HttpServlet {
   private static JSONObject addMeta(HttpServletRequest request) {
     try {
       LOGGER.info("Add Meta");
-      String fileHash = request.getParameter("fileHash");
-      String fileName = request.getParameter("fileName");
-      String uid = request.getParameter("uid");
+      JSONObject json = AuthenticationHandler.parseJson(request);
+      String idToken = json.getString("idToken");
+
+      String fileHash = json.getString("fileHash");
+      String fileName = json.getString("fileName");
+      String uidHash = FirebaseHandler.uidHash(FirebaseHandler.getUID(idToken));
       int fileType = Integer.parseInt(request.getParameter("fileType"));
       boolean isEncrypted = Boolean.parseBoolean(request.getParameter("isEncrypted"));
       String searchTags = request.getParameter("searchTags");
       String cid = request.getParameter("cid");
       DataTable data =
-          DataTable.addData(fileHash, fileName, uid, fileType, isEncrypted, searchTags, cid);
+          DataTable.addData(fileHash, fileName, uidHash, fileType, isEncrypted, searchTags, cid);
       return ResponseHandler.getSuccessResponseJson(data.toJson());
-    } catch (DDException e) {
+    } catch (DDException | FirebaseAuthException e) {
       return ResponseHandler.getErrorResponseJson(e.getMessage());
     }
   }
@@ -79,25 +77,29 @@ public class DataHandler extends HttpServlet {
   private static JSONObject listMeta(HttpServletRequest request) {
     try {
       JSONArray dataList = new JSONArray();
-      String uid = request.getParameter("uid");
-      List<DataTable> list = DataTable.getList(uid);
+      String idToken = request.getParameter("idToken");
+      String uidHash = FirebaseHandler.uidHash(FirebaseHandler.getUID(idToken));
+
+      List<DataTable> list = DataTable.getList(uidHash);
 
       for (DataTable dt : list) {
         dataList.put(dt.toJson());
       }
       return ResponseHandler.getSuccessResponseJson(dataList);
-    } catch (DDException e) {
+    } catch (DDException | FirebaseAuthException e) {
       return ResponseHandler.getErrorResponseJson(e.getMessage());
     }
   }
 
   private static JSONObject deleteMeta(HttpServletRequest request) {
     try {
-      String uid = request.getParameter("uid");
+      String idToken = request.getParameter("idToken");
+      String uidHash = FirebaseHandler.uidHash(FirebaseHandler.getUID(idToken));
+
       String cid = request.getParameter("cid");
-      int i = DataTable.deleteData(uid, cid);
+      int i = DataTable.deleteData(uidHash, cid);
       return ResponseHandler.getSuccessResponseJson("Deleted " + i + " data");
-    } catch (DDException e) {
+    } catch (DDException | FirebaseAuthException e) {
       return ResponseHandler.getErrorResponseJson(e.getMessage());
     }
   }
@@ -106,8 +108,10 @@ public class DataHandler extends HttpServlet {
     try {
       JSONArray dataList = new JSONArray();
       String uid = request.getParameter("uid");
+      String uidHash = FirebaseHandler.uidHash(uid);
+
       String searchTerm = request.getParameter("search");
-      List<DataTable> list = DataTable.searchData(uid, searchTerm);
+      List<DataTable> list = DataTable.searchData(uidHash, searchTerm);
 
       for (DataTable dt : list) {
         dataList.put(dt.toJson());

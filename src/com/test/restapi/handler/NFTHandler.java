@@ -2,6 +2,7 @@ package com.test.restapi.handler;
 
 import com.test.db.table.NFTTable;
 import com.test.exception.DDException;
+import com.test.firebase.FirebaseHandler;
 import com.test.restapi.response.ResponseHandler;
 import java.io.IOException;
 import java.util.HashMap;
@@ -62,9 +63,11 @@ public class NFTHandler extends HttpServlet {
     try {
       LOGGER.info("Add Meta");
       String uid = request.getParameter("uid");
+      String uidHash = FirebaseHandler.uidHash(uid);
+
       String cid = request.getParameter("cid");
       long dataId = Long.parseLong(request.getParameter("dataId"));
-      NFTTable data = NFTTable.addData(dataId, uid, cid);
+      NFTTable data = NFTTable.addData(dataId, uidHash, cid);
       return ResponseHandler.getSuccessResponseJson(data.toJson());
     } catch (DDException e) {
       return ResponseHandler.getErrorResponseJson(e.getMessage());
@@ -75,7 +78,9 @@ public class NFTHandler extends HttpServlet {
     try {
       JSONArray dataList = new JSONArray();
       String uid = request.getParameter("uid");
-      List<NFTTable> list = NFTTable.getList(uid);
+      String uidHash = FirebaseHandler.uidHash(uid);
+
+      List<NFTTable> list = NFTTable.getList(uidHash);
 
       for (NFTTable dt : list) {
         dataList.put(dt.toJson());
@@ -89,8 +94,10 @@ public class NFTHandler extends HttpServlet {
   private static JSONObject deleteMeta(HttpServletRequest request) {
     try {
       String uid = request.getParameter("uid");
+      String uidHash = FirebaseHandler.uidHash(uid);
+
       String cid = request.getParameter("cid");
-      int i = NFTTable.deleteData(uid, cid);
+      int i = NFTTable.deleteData(uidHash, cid);
       return ResponseHandler.getSuccessResponseJson("Deleted " + i + " data");
     } catch (DDException e) {
       return ResponseHandler.getErrorResponseJson(e.getMessage());
@@ -101,8 +108,10 @@ public class NFTHandler extends HttpServlet {
     try {
       JSONArray dataList = new JSONArray();
       String uid = request.getParameter("uid");
+      String uidHash = FirebaseHandler.uidHash(uid);
+
       String searchTerm = request.getParameter("search");
-      List<NFTTable> list = NFTTable.searchData(uid, searchTerm);
+      List<NFTTable> list = NFTTable.searchData(uidHash, searchTerm);
 
       for (NFTTable dt : list) {
         dataList.put(dt.toJson());

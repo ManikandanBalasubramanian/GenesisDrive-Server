@@ -6,8 +6,11 @@ import com.google.firebase.FirebaseOptions;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.FirebaseToken;
+import com.test.exception.DDException;
+import com.test.exception.DDException.StatusCode;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.security.MessageDigest;
 import java.util.logging.Logger;
 
 public class FirebaseHandler {
@@ -24,6 +27,22 @@ public class FirebaseHandler {
       FirebaseApp.initializeApp(options);
     } catch (IOException e) {
       LOGGER.info("Error Initializing Firebase App.\nCause: " + e.getLocalizedMessage());
+    }
+  }
+
+  public static String uidHash(String uid) throws DDException {
+    try {
+      final MessageDigest digest = MessageDigest.getInstance("SHA-256");
+      final byte[] hash = digest.digest(uid.getBytes("UTF-8"));
+      final StringBuilder hexString = new StringBuilder();
+      for (int i = 0; i < hash.length; i++) {
+        final String hex = Integer.toHexString(0xff & hash[i]);
+        if (hex.length() == 1) hexString.append('0');
+        hexString.append(hex);
+      }
+      return hexString.toString();
+    } catch (Exception ex) {
+      throw new DDException(StatusCode.INTERNAL_SERVER_ERROR, "Internal Server Error", ex);
     }
   }
 

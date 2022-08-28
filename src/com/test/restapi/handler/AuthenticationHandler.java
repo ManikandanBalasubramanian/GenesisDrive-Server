@@ -2,10 +2,10 @@ package com.test.restapi.handler;
 
 import static com.test.config.ServerConfigurations.SESSION_COOKIE;
 
+import com.gd.JNI;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.SessionCookieOptions;
-import com.test.config.ServerConfigurations;
 import com.test.db.table.UserTable;
 import com.test.exception.DDException;
 import com.test.firebase.FirebaseHandler;
@@ -29,87 +29,93 @@ public class AuthenticationHandler extends HttpServlet {
 
   private static final Logger LOGGER = Logger.getLogger(AuthenticationHandler.class.getName());
 
-  @Override
-  protected void doGet(HttpServletRequest request, HttpServletResponse response)
-      throws ServletException, IOException {
-    LOGGER.info("SignOut");
-    String cookieVal = ServerConfigurations.getSessionCookie(request.getCookies());
-    Cookie cookie = new Cookie(SESSION_COOKIE, cookieVal);
-    cookie.setMaxAge(0);
-    cookie.setHttpOnly(true);
-    response.addCookie(cookie);
-    ((HttpServletResponse) response).sendRedirect("/signin");
+  private static JNI jni = new JNI();
+
+  static {
+    jni.getPassphrase("init");
   }
 
   @Override
   protected void doPost(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
     String path = request.getRequestURI();
-
-    if (path.equals("/sessionLogin")) {
-      sessionLogin(request, response);
-    } else if (path.equals("/sessionSignup")) {
-      sessionSignUp(request, response);
-    }
-  }
-
-  private void sessionSignUp(HttpServletRequest request, HttpServletResponse response) {
-    LOGGER.info("SignUp");
-    JSONObject output = new JSONObject();
-    long expiresIn = TimeUnit.DAYS.toMillis(5);
     JSONObject json = parseJson(request);
-    //    String username = json.getString("username");
-    String username = "temp";
-    String idToken = json.getString("idToken");
 
-    SessionCookieOptions options = SessionCookieOptions.builder().setExpiresIn(expiresIn).build();
+    if (path.equals("/sessionSignup")) {
+      sessionSignUp(json, request, response);
+    } else if ("/getphrase".equals(path)) {
+      getPhrase(json, request, response);
+    } else {
+      ResponseHandler.sendErrorResponse("Invalid Request", 400, response);
+    }
+  }
 
+  public static String byteArrayToHex(byte[] a) {
+    StringBuilder sb = new StringBuilder(a.length * 2);
+    for (byte b : a) sb.append(String.format("%02x", b));
+    return sb.toString();
+  }
+
+  private void getPhrase(JSONObject json, HttpServletRequest request, HttpServletResponse response)
+      throws IOException {
     try {
+      String uid = json.getString("uid");
+      LOGGER.info("uid : " + uid);
+      byte[] bArr = jni.getPassphrase(uid);
+
+      ResponseHandler.sendSuccessResponse(
+          ResponseHandler.getSuccessResponseJson(byteArrayToHex(bArr)), 200, response);
+    } catch (Exception e) {
+      LOGGER.severe(e.getMessage());
+      ResponseHandler.sendErrorResponse("Invalid request", 400, response);
+    }
+  }
+
+  private void sessionSignUp(
+      JSONObject json, HttpServletRequest request, HttpServletResponse response) {
+    try {
+      LOGGER.info("SignUp");
+      String idToken = json.getString("idToken");
+      String username = json.getString("username");
+      String passphrase = json.getString("passphrase");
+
       String uid = FirebaseHandler.getUID(idToken);
+      String uidHash = FirebaseHandler.uidHash(uid);
 
-      String cookieVal = FirebaseAuth.getInstance().createSessionCookie(idToken, options);
-      Cookie cookie = new Cookie(SESSION_COOKIE, cookieVal);
-      cookie.setMaxAge((int) expiresIn);
-      cookie.setHttpOnly(true);
-      UserTable ut = UserTable.addUser(username, uid);
+      if (UserTable.getUserDetails(uidHash) != null) throw new DDException("Invalid", null);
 
-      response.addCookie(cookie);
-      output = ResponseHandler.getSuccessResponseJson(ut.toJson());
-    } catch (FirebaseAuthException | DDException e) {
-      output = ResponseHandler.getErrorResponseJson("Error Authenticating user");
+      //      jni.getPassphrase(uid);
+
+      UserTable ut = UserTable.addUser(username, uidHash, passphrase);
+
+      long expiresIn = TimeUnit.DAYS.toMillis(5);
+      SessionCookieOptions options = SessionCookieOptions.builder().setExpiresIn(expiresIn).build();
+
+      try {
+        String cookieVal = FirebaseAuth.getInstance().createSessionCookie(idToken, options);
+        Cookie cookie = new Cookie(SESSION_COOKIE, cookieVal);
+        cookie.setMaxAge((int) expiresIn);
+        cookie.setHttpOnly(true);
+        response.addCookie(cookie);
+        ResponseHandler.sendSuccessResponse(
+            ResponseHandler.getSuccessResponseJson("User Addition successful"), 200, response);
+
+      } catch (FirebaseAuthException e) {
+        LOGGER.severe(e.getMessage());
+        ResponseHandler.sendErrorResponse("Invalid request", 400, response);
+      }
+    } catch (Exception e) {
+      LOGGER.severe(e.getMessage());
+      ResponseHandler.sendErrorResponse("Invalid request", 400, response);
     }
-    ResponseHandler.writeResponse(output, response);
   }
 
-  private void sessionLogin(HttpServletRequest request, HttpServletResponse response) {
-    LOGGER.info("SignIn");
-    JSONObject output = new JSONObject();
-    long expiresIn = TimeUnit.DAYS.toMillis(5);
-    String idToken = parseJson(request).getString("idToken");
-    SessionCookieOptions options = SessionCookieOptions.builder().setExpiresIn(expiresIn).build();
-
-    try {
-      String cookieVal = FirebaseAuth.getInstance().createSessionCookie(idToken, options);
-      Cookie cookie = new Cookie(SESSION_COOKIE, cookieVal);
-      cookie.setMaxAge((int) expiresIn);
-      cookie.setHttpOnly(true);
-      response.addCookie(cookie);
-      output = ResponseHandler.getSuccessResponseJson("");
-    } catch (FirebaseAuthException e) {
-      output = ResponseHandler.getErrorResponseJson("Error Authenticating user");
-    }
-    ResponseHandler.writeResponse(output, response);
-  }
-
-  private JSONObject parseJson(HttpServletRequest request) {
+  public static JSONObject parseJson(HttpServletRequest request) {
     StringBuilder stringBuilder = new StringBuilder();
     try (InputStream inputStream = request.getInputStream();
         BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream))) {
-      char[] charBuffer = new char[128];
-      int bytesRead = -1;
-      while ((bytesRead = bufferedReader.read(charBuffer)) > 0) {
-        stringBuilder.append(charBuffer, 0, bytesRead);
-      }
+      String inputStr;
+      while ((inputStr = bufferedReader.readLine()) != null) stringBuilder.append(inputStr);
     } catch (IOException ex) {
       ex.printStackTrace();
     }

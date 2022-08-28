@@ -51,8 +51,9 @@ public class UserHandler extends HttpServlet {
     try {
       String userName = request.getParameter("username");
       String uid = request.getParameter("uid");
+      String passphrase = request.getParameter("passphrase");
 
-      return UserTable.addUser(userName, uid).toJson();
+      return UserTable.addUser(userName, uid, passphrase).toJson();
     } catch (DDException e) {
       return ResponseHandler.getErrorResponseJson(e.getMessage());
     }
